@@ -1,0 +1,32 @@
+# Environment files
+.env
+
+# SSL/TLS certificates and keys
+*.pem
+*.key
+*.crt
+*.csr
+cloudflare.ini
+
+# Logs
+*.log
+ssl-renewal.log
+
+# Data directories (uncomment if you don't want to track data)
+# data/
+# /srv/
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

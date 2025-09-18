@@ -1,0 +1,24 @@
+services:
+  mempool-db:
+    image: mariadb:10.11
+    container_name: mempool-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - /srv/mempool/mysql:/var/lib/mysql
+    networks:
+      - crypto-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  crypto-network:
+    name: crypto-network
+    external: true

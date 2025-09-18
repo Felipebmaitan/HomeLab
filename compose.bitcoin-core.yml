@@ -1,0 +1,39 @@
+services:
+  bitcoin-core:
+    image: bitcoin/bitcoin:latest
+    container_name: bitcoin-core
+    restart: unless-stopped
+    command:
+      - -printtoconsole
+      - -txindex=1
+      - -server=1
+      - -rest
+      - -rpcbind=0.0.0.0
+      - -rpcallowip=10.0.0.0/8
+      - -rpcallowip=172.16.0.0/12
+      - -rpcallowip=192.168.0.0/16
+      - -rpcuser=${BITCOIN_RPC_USER}
+      - -rpcpassword=${BITCOIN_RPC_PASSWORD}
+      - -zmqpubrawblock=tcp://0.0.0.0:${BITCOIN_ZMQ_RAWBLOCK_PORT}
+      - -zmqpubrawtx=tcp://0.0.0.0:${BITCOIN_ZMQ_RAWTX_PORT}
+      - -zmqpubhashblock=tcp://0.0.0.0:${BITCOIN_ZMQ_HASHBLOCK_PORT}
+      - -zmqpubsequence=tcp://0.0.0.0:${BITCOIN_ZMQ_SEQUENCE_PORT}
+      - -dbcache=${BITCOIN_DBCACHE}
+      - -maxmempool=${BITCOIN_MAXMEMPOOL}
+    volumes:
+      - /srv/bitcoin/data:/home/bitcoin/.bitcoin
+    ports:
+      - "${BITCOIN_RPC_PORT}:8332"
+      - "${BITCOIN_P2P_PORT}:8333"
+      - "${BITCOIN_ZMQ_RAWBLOCK_PORT}:${BITCOIN_ZMQ_RAWBLOCK_PORT}"
+      - "${BITCOIN_ZMQ_RAWTX_PORT}:${BITCOIN_ZMQ_RAWTX_PORT}"
+      - "${BITCOIN_ZMQ_HASHBLOCK_PORT}:${BITCOIN_ZMQ_HASHBLOCK_PORT}"
+      - "${BITCOIN_ZMQ_SEQUENCE_PORT}:${BITCOIN_ZMQ_SEQUENCE_PORT}"
+    networks:
+      - crypto-network
+    mem_limit: ${BITCOIN_MEMORY_LIMIT}
+
+networks:
+  crypto-network:
+    name: crypto-network
+    external: true

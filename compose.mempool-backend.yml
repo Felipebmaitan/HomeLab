@@ -1,0 +1,37 @@
+services:
+  mempool-backend:
+    image: mempool/backend:latest
+    container_name: mempool-backend
+    restart: unless-stopped
+    depends_on:
+      mempool-db:
+        condition: service_healthy
+    environment:
+      - CORE_RPC_HOST=bitcoin-core
+      - CORE_RPC_PORT=${BITCOIN_RPC_PORT}
+      - CORE_RPC_USERNAME=${BITCOIN_RPC_USER}
+      - CORE_RPC_PASSWORD=${BITCOIN_RPC_PASSWORD}
+      - DATABASE_ENABLED=true
+      - DATABASE_HOST=mempool-db
+      - DATABASE_PORT=${DATABASE_PORT}
+      - DATABASE_DATABASE=${MYSQL_DATABASE}
+      - DATABASE_USERNAME=${MYSQL_USER}
+      - DATABASE_PASSWORD=${MYSQL_PASSWORD}
+      - MEMPOOL_BACKEND=electrum
+      - ELECTRUM_HOST=electrs
+      - ELECTRUM_PORT=${ELECTRS_PORT}
+      - ELECTRUM_TLS_ENABLED=false
+      - STATISTICS_ENABLED=true
+      - CORE_ZMQ_RAWBLOCK=tcp://bitcoin-core:${BITCOIN_ZMQ_RAWBLOCK_PORT}
+      - CORE_ZMQ_RAWTX=tcp://bitcoin-core:${BITCOIN_ZMQ_RAWTX_PORT}
+      - CORE_ZMQ_HASHBLOCK=tcp://bitcoin-core:${BITCOIN_ZMQ_HASHBLOCK_PORT}
+      - CORE_ZMQ_SEQUENCE=tcp://bitcoin-core:${BITCOIN_ZMQ_SEQUENCE_PORT}
+    volumes:
+      - /srv/mempool/backend:/backend/cache
+    networks:
+      - crypto-network
+
+networks:
+  crypto-network:
+    name: crypto-network
+    external: true

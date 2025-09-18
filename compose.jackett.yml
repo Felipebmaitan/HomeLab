@@ -1,0 +1,23 @@
+services:
+  jackett:
+    image: lscr.io/linuxserver/jackett:latest
+    container_name: jackett
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - AUTO_UPDATE=true
+      - JACKETT__BasePathOverride=${JACKETT_URL_BASE}
+    volumes:
+      - /srv/jackett/config:/config
+      - /srv/jackett_blackhole:/downloads
+    ports:
+      - "${JACKETT_PORT}:9117"
+    networks:
+      - media-network
+
+networks:
+  media-network:
+    name: media-network
+    external: true

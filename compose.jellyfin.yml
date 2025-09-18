@@ -1,0 +1,26 @@
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    user: "${PUID}:${PGID}"
+    environment:
+      - JELLYFIN_PublishedServerUrl=${JELLYFIN_PUBLISHED_SERVER_URL}
+      - JELLYFIN_Base_Url=${JELLYFIN_URL_BASE}
+      - TZ=${TZ}
+    volumes:
+      - /srv/jellyfin/config:/config
+      - /srv/jellyfin/cache:/cache
+      - /srv/media/movies:/media/movies:ro
+      - /srv/media/tvshows:/media/tvshows:ro
+      - /srv/media/downloads:/media/downloads:ro
+    ports:
+      - "${JELLYFIN_PORT}:8096"
+      - "${JELLYFIN_HTTPS_PORT}:8920"
+    networks:
+      - media-network
+
+networks:
+  media-network:
+    name: media-network
+    external: true

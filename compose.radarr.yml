@@ -1,0 +1,23 @@
+services:
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+      - RADARR__URLBASE=${RADARR_URL_BASE}
+    volumes:
+      - /srv/radarr/config:/config
+      - /srv/media/movies:/movies
+      - /srv/media/downloads:/downloads
+    ports:
+      - "${RADARR_PORT}:7878"
+    networks:
+      - media-network
+
+networks:
+  media-network:
+    name: media-network
+    external: true
