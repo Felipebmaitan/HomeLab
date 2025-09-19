@@ -57,24 +57,39 @@ while [[ $# -gt 0 ]]; do
             exit 1
             ;;
     esac
+
 done
 
 print_header "Stopping Docker Services"
 
-# Define all services
-ALL_SERVICES=("nginx" "certbot" "jellyfin" "radarr" "sonarr" "jackett" "qbittorrent" "mempool-frontend" "mempool-backend" "electrs" "mempool-db" "bitcoin-core")
+# Stacks and standalone services
+STACK_FILES=("bitcoin" "mempool")
+MEDIA_SERVICES=("qbittorrent" "jackett" "sonarr" "radarr" "jellyfin")
+PROXY_SERVICES=("nginx" "certbot")
 
-# Function to stop a service
+# Helper to stop a compose file stack
+stop_stack() {
+    local base=$1
+    local compose_file="compose.${base}.yml"
+
+    if [ -f "$compose_file" ]; then
+        print_status "Stopping stack: $base..."
+        docker compose -f "$compose_file" down
+        print_status "Stack $base stopped"
+    else
+        print_warning "Compose file $compose_file not found, skipping stack $base"
+    fi
+}
+
+# Stop standalone service
 stop_service() {
     local service=$1
     local compose_file="compose.${service}.yml"
     
     if [ -f "$compose_file" ]; then
         print_status "Stopping $service..."
-        
-        # Check if service is running
-        if docker-compose -f "$compose_file" ps -q | xargs docker inspect -f '{{.State.Status}}' 2>/dev/null | grep -q "running"; then
-            docker-compose -f "$compose_file" down
+        if docker compose -f "$compose_file" ps -q | xargs docker inspect -f '{{.State.Status}}' 2>/dev/null | grep -q "running"; then
+            docker compose -f "$compose_file" down
             print_status "$service stopped"
         else
             print_status "$service was not running"
@@ -84,13 +99,22 @@ stop_service() {
     fi
 }
 
-# Stop services in reverse order (to handle dependencies properly)
-REVERSE_SERVICES=($(printf '%s\n' "${ALL_SERVICES[@]}" | tac))
-
+# Stop services in reverse dependency order
 print_status "Stopping services in dependency order..."
-for service in "${REVERSE_SERVICES[@]}"; do
+
+# Stop proxy first
+for service in "${PROXY_SERVICES[@]}"; do
     stop_service "$service"
 done
+
+# Stop media services
+for service in "${MEDIA_SERVICES[@]}"; do
+    stop_service "$service"
+done
+
+# Stop stacks (mempool before bitcoin)
+stop_stack "mempool"
+stop_stack "bitcoin"
 
 # Remove networks if requested
 if [ "$REMOVE_NETWORKS" = true ]; then

@@ -78,29 +78,43 @@ mkdir -p ./data/certbot/www
 print_status "Setting directory permissions..."
 chown -R 1000:1000 /srv/jellyfin /srv/sonarr /srv/radarr /srv/qbittorrent /srv/jackett /srv/media
 
-# Define service groups and startup order
-CRYPTO_SERVICES=("bitcoin-core" "mempool-db" "electrs" "mempool-backend" "mempool-frontend")
+# Define containers for status reporting and standalone stacks
+CRYPTO_CONTAINERS=("bitcoin-core" "electrs" "mempool-db" "mempool-backend" "mempool-frontend")
 MEDIA_SERVICES=("qbittorrent" "jackett" "sonarr" "radarr" "jellyfin")
 PROXY_SERVICES=("nginx" "certbot")
 
-# Function to start a service
+# Function to start a single-service compose file (media/proxy)
 start_service() {
     local service=$1
     local compose_file="compose.${service}.yml"
     
     if [ -f "$compose_file" ]; then
         print_status "Starting $service..."
-        docker-compose -f "$compose_file" --env-file .env up -d
+        docker compose -f "$compose_file" --env-file .env up -d
         
         # Wait a bit for the service to start
         sleep 2
         
         # Check if service is running
-        if docker-compose -f "$compose_file" --env-file .env ps | grep -q "Up"; then
+        if docker compose -f "$compose_file" --env-file .env ps | grep -q "Up"; then
             print_status "$service started successfully"
         else
             print_warning "$service may not have started correctly"
         fi
+    else
+        print_error "Compose file $compose_file not found!"
+    fi
+}
+
+# Function to start a grouped compose file (e.g., bitcoin stack, mempool stack)
+start_compose_file() {
+    local base=$1
+    local compose_file="compose.${base}.yml"
+
+    if [ -f "$compose_file" ]; then
+        print_status "Starting compose stack: $base..."
+        docker compose -f "$compose_file" --env-file .env up -d
+        sleep 2
     else
         print_error "Compose file $compose_file not found!"
     fi
@@ -115,7 +129,7 @@ wait_for_service() {
     print_status "Waiting for $service to be healthy..."
     
     while [ $attempt -le $max_attempts ]; do
-        if docker ps --format "table {{.Names}}\t{{.Status}}" | grep "$service" | grep -q "healthy\|Up"; then
+        if docker ps --format "table {{.Names}}\t{{.Status}}" | grep "$service" | grep -q "healthy"; then
             print_status "$service is ready"
             return 0
         fi
@@ -129,21 +143,12 @@ wait_for_service() {
     return 1
 }
 
-# Start crypto services (with dependencies)
+# Start crypto stacks (grouped)
 print_header "Starting Crypto Services"
-for service in "${CRYPTO_SERVICES[@]}"; do
-    start_service "$service"
-    
-    # Wait for database to be healthy before starting dependent services
-    if [ "$service" = "mempool-db" ]; then
-        wait_for_service "mempool-db"
-    fi
-    
-    # Wait for bitcoin-core before starting electrs
-    if [ "$service" = "bitcoin-core" ]; then
-        sleep 10  # Bitcoin Core needs more time to initialize
-    fi
-done
+start_compose_file "bitcoin"
+wait_for_service "bitcoin-core"
+start_compose_file "mempool"
+wait_for_service "mempool-db"
 
 # Start media services
 print_header "Starting Media Services"
@@ -161,7 +166,7 @@ done
 print_header "Service Status Summary"
 echo ""
 print_status "Crypto Services:"
-for service in "${CRYPTO_SERVICES[@]}"; do
+for service in "${CRYPTO_CONTAINERS[@]}"; do
     if docker ps --format "table {{.Names}}\t{{.Status}}" | grep -q "$service"; then
         status=$(docker ps --format "table {{.Names}}\t{{.Status}}" | grep "$service" | awk '{print $2}')
         echo "  ✓ $service: $status"
@@ -218,5 +223,5 @@ if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "yourdomain.com" ]; then
 fi
 
 print_header "All services started!"
-print_status "Check the logs with: docker-compose -f compose.<service>.yml logs -f"
+print_status "Check the logs with: docker compose -f compose.<service>.yml logs -f"
 print_status "Stop all services with: ./stop-all.sh"

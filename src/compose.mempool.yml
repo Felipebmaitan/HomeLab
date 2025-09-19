@@ -1,4 +1,23 @@
 services:
+  mempool-db:
+    image: mariadb:10.11
+    container_name: mempool-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - /srv/mempool/mysql:/var/lib/mysql
+    networks:
+      - crypto-network
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   mempool-backend:
     image: mempool/backend:latest
     container_name: mempool-backend
@@ -28,6 +47,21 @@ services:
       - CORE_ZMQ_SEQUENCE=tcp://bitcoin-core:${BITCOIN_ZMQ_SEQUENCE_PORT}
     volumes:
       - /srv/mempool/backend:/backend/cache
+    networks:
+      - crypto-network
+
+  mempool-frontend:
+    image: mempool/frontend:latest
+    container_name: mempool-frontend
+    restart: unless-stopped
+    depends_on:
+      - mempool-backend
+    environment:
+      - BACKEND_MAINNET_HTTP_HOST=mempool-backend
+      - BACKEND_MAINNET_HTTP_PORT=${MEMPOOL_BACKEND_PORT}
+      - MEMPOOL_EXTERNAL_URL=${MEMPOOL_EXTERNAL_URL}
+    ports:
+      - "${MEMPOOL_FRONTEND_PORT}:8080"
     networks:
       - crypto-network
 

@@ -32,6 +32,34 @@ services:
     networks:
       - crypto-network
     mem_limit: ${BITCOIN_MEMORY_LIMIT}
+    healthcheck:
+      test: ["CMD-SHELL", "bitcoin-cli -rpcconnect=127.0.0.1 -rpcport=8332 -rpcuser=${BITCOIN_RPC_USER} -rpcpassword=${BITCOIN_RPC_PASSWORD} getblockchaininfo >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+
+  electrs:
+    image: mempool/electrs
+    container_name: electrs
+    restart: unless-stopped
+    depends_on:
+      bitcoin-core:
+        condition: service_healthy
+    environment:
+      - DAEMON_RPC_ADDR=bitcoin-core:${BITCOIN_RPC_PORT}
+      - DAEMON_P2P_ADDR=bitcoin-core:${BITCOIN_P2P_PORT}
+      - DAEMON_RPC_USER=${BITCOIN_RPC_USER}
+      - DAEMON_RPC_PASS=${BITCOIN_RPC_PASSWORD}
+      - ELECTRS_DB_DIR=/data
+      - ELECTRS_NETWORK=bitcoin
+      - ELECTRS_LOG_LEVEL=info
+    volumes:
+      - /srv/electrs/data:/data
+    ports:
+      - "${ELECTRS_PORT}:50001"
+    networks:
+      - crypto-network
 
 networks:
   crypto-network:
