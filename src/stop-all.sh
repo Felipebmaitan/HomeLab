@@ -162,13 +162,13 @@ fi
 print_header "Service Status Summary"
 echo ""
 
-RUNNING_CONTAINERS=$(docker ps --format "table {{.Names}}" | grep -E "(bitcoin-core|electrs|mempool|jellyfin|sonarr|radarr|jackett|qbittorrent|nginx|certbot)" | wc -l || echo "0")
+RUNNING_CONTAINERS=$(docker ps --format "table {{.Names}}" | grep -E "(bitcoin-core|fulcrum|mempool|jellyfin|sonarr|radarr|jackett|qbittorrent|nginx|certbot)" | wc -l || echo "0")
 
 if [ "$RUNNING_CONTAINERS" -eq 0 ]; then
     print_status "✓ All services stopped successfully"
 else
     print_warning "⚠ Some containers may still be running:"
-    docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "(bitcoin-core|electrs|mempool|jellyfin|sonarr|radarr|jackett|qbittorrent|nginx|certbot)" || true
+    docker ps --format "table {{.Names}}\t{{.Status}}" | grep -E "(bitcoin-core|fulcrum|mempool|jellyfin|sonarr|radarr|jackett|qbittorrent|nginx|certbot)" || true
 fi
 
 echo ""

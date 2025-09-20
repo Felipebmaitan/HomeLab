@@ -37,8 +37,8 @@ services:
       - DATABASE_USERNAME=${MYSQL_USER}
       - DATABASE_PASSWORD=${MYSQL_PASSWORD}
       - MEMPOOL_BACKEND=electrum
-      - ELECTRUM_HOST=electrs
-      - ELECTRUM_PORT=${ELECTRS_PORT}
+      - ELECTRUM_HOST=fulcrum
+      - ELECTRUM_PORT=${FULCRUM_PORT}
       - ELECTRUM_TLS_ENABLED=false
       - STATISTICS_ENABLED=true
       - CORE_ZMQ_RAWBLOCK=tcp://bitcoin-core:${BITCOIN_ZMQ_RAWBLOCK_PORT}

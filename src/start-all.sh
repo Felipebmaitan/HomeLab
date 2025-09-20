@@ -58,7 +58,7 @@ fi
 # Create required directories
 print_status "Creating required directories..."
 mkdir -p /srv/bitcoin/data
-mkdir -p /srv/electrs/data
+mkdir -p /srv/fulcrum/data
 mkdir -p /srv/mempool/backend
 mkdir -p /srv/mempool/mysql
 mkdir -p /srv/jellyfin/config
@@ -79,7 +79,7 @@ print_status "Setting directory permissions..."
 chown -R 1000:1000 /srv/jellyfin /srv/sonarr /srv/radarr /srv/qbittorrent /srv/jackett /srv/media
 
 # Define containers for status reporting and standalone stacks
-CRYPTO_CONTAINERS=("bitcoin-core" "electrs" "mempool-db" "mempool-backend" "mempool-frontend")
+CRYPTO_CONTAINERS=("bitcoin-core" "fulcrum" "mempool-db" "mempool-backend" "mempool-frontend")
 MEDIA_SERVICES=("qbittorrent" "jackett" "sonarr" "radarr" "jellyfin")
 PROXY_SERVICES=("nginx" "certbot")
 
@@ -209,9 +209,10 @@ echo "  • qBittorrent: http://localhost:${QBITTORRENT_WEBUI_PORT:-8080}"
 echo "  • Jackett: http://localhost:${JACKETT_PORT:-9117}"
 echo "  • Mempool: http://localhost:${MEMPOOL_FRONTEND_PORT:-8090}"
 echo "  • Bitcoin Core RPC: http://localhost:${BITCOIN_RPC_PORT:-8332}"
-echo "  • Electrs: tcp://localhost:${ELECTRS_PORT:-50001}"
+echo "  • Fulcrum: tcp://localhost:${FULCRUM_PORT:-50001}"
 
 if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "yourdomain.com" ]; then
+    BITCOIN_SUBDOMAIN="${BITCOIN_SUBDOMAIN:-bitcoin}"
     echo ""
     echo "External Access (when reverse proxy is configured):"
     echo "  • Jellyfin: ${JELLYFIN_EXTERNAL_URL:-https://jellyfin.$DOMAIN}"
@@ -220,6 +221,7 @@ if [ -n "$DOMAIN" ] && [ "$DOMAIN" != "yourdomain.com" ]; then
     echo "  • qBittorrent: ${QBITTORRENT_EXTERNAL_URL:-https://$DOMAIN/qbittorrent}"
     echo "  • Jackett: ${JACKETT_EXTERNAL_URL:-https://$DOMAIN/jackett}"
     echo "  • Mempool: ${MEMPOOL_EXTERNAL_URL:-https://$DOMAIN/mempool}"
+    echo "  • Fulcrum SSL (Electrum): ssl://${BITCOIN_SUBDOMAIN}.${DOMAIN}:50002"
 fi
 
 print_header "All services started!"

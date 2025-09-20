@@ -16,6 +16,7 @@ fi
 DOMAIN="${1:-${DOMAIN:-yourdomain.com}}"
 EMAIL="${2:-${ADMIN_EMAIL:-youremail@example.com}}"
 STAGING="${3:-false}"
+BITCOIN_SUBDOMAIN="${BITCOIN_SUBDOMAIN:-bitcoin}"
 
 # Colors for output
 RED='\033[0;31m'
@@ -164,14 +165,72 @@ generate_http_cert() {
         -d "$DOMAIN"
 }
 
+# Method 4: Generate separate bitcoin subdomain certificate
+generate_bitcoin_subdomain_cert() {
+    local bitcoin_domain="${BITCOIN_SUBDOMAIN}.${DOMAIN}"
+    print_status "Using manual DNS challenge method for bitcoin subdomain: $bitcoin_domain"
+    print_warning "You will need to manually create DNS TXT records as prompted"
+    
+    certbot certonly \
+        --manual \
+        --preferred-challenges dns \
+        --email "$EMAIL" \
+        --agree-tos \
+        --no-eff-email \
+        --config-dir ./data/certbot/conf \
+        --work-dir ./data/certbot/work \
+        --logs-dir ./data/certbot/logs \
+        --force-renewal \
+        $STAGING_FLAG \
+        -d "$bitcoin_domain"
+}
+
+# Method 5: Generate bitcoin subdomain certificate with Cloudflare
+generate_bitcoin_cloudflare_cert() {
+    local bitcoin_domain="${BITCOIN_SUBDOMAIN}.${DOMAIN}"
+    print_status "Using Cloudflare DNS plugin for bitcoin subdomain: $bitcoin_domain"
+    
+    # Check if Cloudflare credentials file exists
+    if [ ! -f "./cloudflare.ini" ]; then
+        print_warning "Creating Cloudflare credentials template at ./cloudflare.ini"
+        cat > ./cloudflare.ini << EOF
+# Cloudflare API credentials
+# You can get these from https://dash.cloudflare.com/profile/api-tokens
+dns_cloudflare_email = your-email@example.com
+dns_cloudflare_api_key = your-global-api-key
+
+# OR use API Token (recommended)
+# dns_cloudflare_api_token = your-api-token
+EOF
+        chmod 600 ./cloudflare.ini
+        print_error "Please edit ./cloudflare.ini with your Cloudflare credentials and run the script again"
+        exit 1
+    fi
+    
+    certbot certonly \
+        --dns-cloudflare \
+        --dns-cloudflare-credentials ./cloudflare.ini \
+        --email "$EMAIL" \
+        --agree-tos \
+        --no-eff-email \
+        --config-dir ./data/certbot/conf \
+        --work-dir ./data/certbot/work \
+        --logs-dir ./data/certbot/logs \
+        --force-renewal \
+        $STAGING_FLAG \
+        -d "$bitcoin_domain"
+}
+
 # Ask user which method to use
 echo ""
 echo "Choose certificate generation method:"
 echo "1) Manual DNS challenge (requires manual DNS record creation)"
 echo "2) Cloudflare DNS plugin (automated, requires Cloudflare API credentials)"
 echo "3) HTTP challenge (no wildcard support)"
+echo "4) Generate bitcoin subdomain certificate only (manual DNS challenge)"
+echo "5) Generate bitcoin subdomain certificate only (Cloudflare DNS plugin)"
 echo ""
-read -p "Enter your choice (1-3): " choice
+read -p "Enter your choice (1-5): " choice
 
 case $choice in
     1)
@@ -183,6 +242,12 @@ case $choice in
     3)
         generate_http_cert
         ;;
+    4)
+        generate_bitcoin_subdomain_cert
+        ;;
+    5)
+        generate_bitcoin_cloudflare_cert
+        ;;
     *)
         print_error "Invalid choice. Exiting."
         exit 1
@@ -190,12 +255,28 @@ case $choice in
 esac
 
 # Check if certificate was generated successfully
+bitcoin_domain="${BITCOIN_SUBDOMAIN}.${DOMAIN}"
+cert_generated=false
+
+# Check for main domain certificate
 if [ -d "./data/certbot/conf/live/$DOMAIN" ]; then
-    print_status "Certificate generated successfully!"
+    print_status "Main domain certificate generated successfully!"
     print_status "Certificate files are located in: ./data/certbot/conf/live/$DOMAIN/"
     print_status "- Certificate: fullchain.pem"
     print_status "- Private key: privkey.pem"
-    
+    cert_generated=true
+fi
+
+# Check for bitcoin subdomain certificate
+if [ -d "./data/certbot/conf/live/$bitcoin_domain" ]; then
+    print_status "Bitcoin subdomain certificate generated successfully!"
+    print_status "Certificate files are located in: ./data/certbot/conf/live/$bitcoin_domain/"
+    print_status "- Certificate: fullchain.pem"
+    print_status "- Private key: privkey.pem"
+    cert_generated=true
+fi
+
+if [ "$cert_generated" = true ]; then
     # Set up automatic renewal
     print_status "Setting up automatic certificate renewal..."
     

@@ -34,6 +34,7 @@ PUID="${PUID:-1000}"
 PGID="${PGID:-1000}"
 DOMAIN="${DOMAIN:-yourdomain.com}"
 ADMIN_EMAIL="${ADMIN_EMAIL:-you@example.com}"
+BITCOIN_SUBDOMAIN="${BITCOIN_SUBDOMAIN:-bitcoin}"
 
 info "PUID=${PUID} PGID=${PGID} DOMAIN=${DOMAIN}"
 
@@ -53,7 +54,7 @@ fi
 
 # Required directories (match compose volumes exactly)
 info "Creating required directories"
-mkdir -p /srv/bitcoin/data /srv/electrs/data
+mkdir -p /srv/bitcoin/data /srv/fulcrum/data
 mkdir -p /srv/mempool/backend /srv/mempool/mysql
 mkdir -p /srv/jellyfin/config /srv/jellyfin/cache
 mkdir -p /srv/sonarr/config /srv/radarr/config /srv/qbittorrent/config /srv/jackett/config
@@ -89,6 +90,17 @@ if grep -q '/etc/letsencrypt/live/_/' "${NGINX_DST}"; then
     info "Patched cert paths in /srv/nginx.conf to use domain ${DOMAIN}"
   else
     warn "DOMAIN is 'yourdomain.com'. Update /srv/nginx.conf cert paths after setting DOMAIN."
+  fi
+fi
+
+# Patch bitcoin subdomain cert path _DOMAIN_ -> real domain
+if grep -q 'bitcoin._DOMAIN_' "${NGINX_DST}"; then
+  if [[ "${DOMAIN}" != "yourdomain.com" ]]; then
+    bitcoin_domain="${BITCOIN_SUBDOMAIN}.${DOMAIN}"
+    sed -i "s|bitcoin._DOMAIN_|${bitcoin_domain}|g" "${NGINX_DST}"
+    info "Patched bitcoin subdomain cert paths in /srv/nginx.conf to use ${bitcoin_domain}"
+  else
+    warn "DOMAIN is 'yourdomain.com'. Update bitcoin subdomain cert paths in /srv/nginx.conf after setting DOMAIN."
   fi
 fi
 
@@ -131,14 +143,23 @@ if ! grep -q 'proxy_set_header Upgrade \$http_upgrade;' "${NGINX_DST}"; then
 fi
 
 # Hint for cert generation
+bitcoin_domain="${BITCOIN_SUBDOMAIN}.${DOMAIN}"
 if [[ ! -d "./data/certbot/conf/live/${DOMAIN}" ]]; then
   warn "No certs found under ./data/certbot/conf/live/${DOMAIN}."
   echo "  Generate certs before starting nginx:"
   echo "  ./generate-ssl.sh ${DOMAIN} ${ADMIN_EMAIL} false"
 fi
 
+if [[ ! -d "./data/certbot/conf/live/${bitcoin_domain}" ]]; then
+  warn "No bitcoin subdomain certs found under ./data/certbot/conf/live/${bitcoin_domain}."
+  echo "  Generate bitcoin subdomain cert with:"
+  echo "  ./generate-ssl.sh ${DOMAIN} ${ADMIN_EMAIL} false"
+  echo "  (Then choose option 4 or 5 for bitcoin subdomain)"
+fi
+
 info "Setup complete."
 echo "Next:"
-echo "  1) Review .env (DOMAIN, ADMIN_EMAIL, passwords)."
+echo "  1) Review .env (DOMAIN, BITCOIN_SUBDOMAIN, ADMIN_EMAIL, passwords)."
 echo "  2) Generate TLS certs (or ensure existing under ./data/certbot/conf/live/${DOMAIN})."
+echo "  3) Generate bitcoin subdomain cert if using Fulcrum (./data/certbot/conf/live/${bitcoin_domain})."
 echo "  3) Start services: ./start-all.sh"
