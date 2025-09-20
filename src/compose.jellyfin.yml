@@ -6,7 +6,6 @@ services:
     user: "${PUID}:${PGID}"
     environment:
       - JELLYFIN_PublishedServerUrl=${JELLYFIN_PUBLISHED_SERVER_URL}
-      - JELLYFIN_Base_Url=${JELLYFIN_URL_BASE}
       - TZ=${TZ}
     volumes:
       - /srv/jellyfin/config:/config

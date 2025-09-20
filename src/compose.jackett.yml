@@ -8,7 +8,6 @@ services:
       - PGID=${PGID}
       - TZ=${TZ}
       - AUTO_UPDATE=true
-      - JACKETT__BasePathOverride=${JACKETT_URL_BASE}
     volumes:
       - /srv/jackett/config:/config
       - /srv/jackett_blackhole:/downloads

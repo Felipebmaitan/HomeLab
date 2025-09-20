@@ -16,13 +16,12 @@ fi
 DOMAIN="${1:-${DOMAIN:-yourdomain.com}}"
 EMAIL="${2:-${ADMIN_EMAIL:-youremail@example.com}}"
 STAGING="${3:-false}"
-BITCOIN_SUBDOMAIN="${BITCOIN_SUBDOMAIN:-bitcoin}"
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
 # Function to print colored output
 print_status() {
@@ -72,7 +71,7 @@ fi
 if ! command -v certbot &> /dev/null; then
     print_status "Installing certbot..."
     apt-get update
-    apt-get install -y certbot python3-certbot-dns-cloudflare
+    apt-get install -y certbot
 fi
 
 # Create directories if they don't exist
@@ -90,10 +89,11 @@ fi
 
 print_status "Generating wildcard certificate for *.$DOMAIN and $DOMAIN"
 
-# Method 1: Manual DNS challenge (requires manual DNS record creation)
-generate_manual_cert() {
-    print_status "Using manual DNS challenge method"
+# Method 1: Manual DNS challenge for wildcard certificate (requires manual DNS record creation)
+generate_wildcard_cert() {
+    print_status "Using manual DNS challenge method for wildcard certificate"
     print_warning "You will need to manually create DNS TXT records as prompted"
+    print_status "This will generate a wildcard certificate valid for $DOMAIN and all subdomains (*.$DOMAIN)"
     
     certbot certonly \
         --manual \
@@ -110,46 +110,11 @@ generate_manual_cert() {
         -d "*.$DOMAIN"
 }
 
-# Method 2: Cloudflare DNS plugin (automated)
-generate_cloudflare_cert() {
-    print_status "Using Cloudflare DNS plugin (automated)"
-    
-    # Check if Cloudflare credentials file exists
-    if [ ! -f "./cloudflare.ini" ]; then
-        print_warning "Creating Cloudflare credentials template at ./cloudflare.ini"
-        cat > ./cloudflare.ini << EOF
-# Cloudflare API credentials
-# You can get these from https://dash.cloudflare.com/profile/api-tokens
-dns_cloudflare_email = your-email@example.com
-dns_cloudflare_api_key = your-global-api-key
-
-# OR use API Token (recommended)
-# dns_cloudflare_api_token = your-api-token
-EOF
-        chmod 600 ./cloudflare.ini
-        print_error "Please edit ./cloudflare.ini with your Cloudflare credentials and run the script again"
-        exit 1
-    fi
-    
-    certbot certonly \
-        --dns-cloudflare \
-        --dns-cloudflare-credentials ./cloudflare.ini \
-        --email "$EMAIL" \
-        --agree-tos \
-        --no-eff-email \
-        --config-dir ./data/certbot/conf \
-        --work-dir ./data/certbot/work \
-        --logs-dir ./data/certbot/logs \
-        --force-renewal \
-        $STAGING_FLAG \
-        -d "$DOMAIN" \
-        -d "*.$DOMAIN"
-}
-
-# Method 3: HTTP challenge for main domain only
+# Method 2: HTTP challenge for main domain only (no wildcard support)
 generate_http_cert() {
     print_status "Using HTTP challenge for main domain only (no wildcard)"
     print_warning "This method cannot generate wildcard certificates"
+    print_warning "You will need to manually add each subdomain to the certificate"
     
     certbot certonly \
         --webroot \
@@ -165,88 +130,20 @@ generate_http_cert() {
         -d "$DOMAIN"
 }
 
-# Method 4: Generate separate bitcoin subdomain certificate
-generate_bitcoin_subdomain_cert() {
-    local bitcoin_domain="${BITCOIN_SUBDOMAIN}.${DOMAIN}"
-    print_status "Using manual DNS challenge method for bitcoin subdomain: $bitcoin_domain"
-    print_warning "You will need to manually create DNS TXT records as prompted"
-    
-    certbot certonly \
-        --manual \
-        --preferred-challenges dns \
-        --email "$EMAIL" \
-        --agree-tos \
-        --no-eff-email \
-        --config-dir ./data/certbot/conf \
-        --work-dir ./data/certbot/work \
-        --logs-dir ./data/certbot/logs \
-        --force-renewal \
-        $STAGING_FLAG \
-        -d "$bitcoin_domain"
-}
-
-# Method 5: Generate bitcoin subdomain certificate with Cloudflare
-generate_bitcoin_cloudflare_cert() {
-    local bitcoin_domain="${BITCOIN_SUBDOMAIN}.${DOMAIN}"
-    print_status "Using Cloudflare DNS plugin for bitcoin subdomain: $bitcoin_domain"
-    
-    # Check if Cloudflare credentials file exists
-    if [ ! -f "./cloudflare.ini" ]; then
-        print_warning "Creating Cloudflare credentials template at ./cloudflare.ini"
-        cat > ./cloudflare.ini << EOF
-# Cloudflare API credentials
-# You can get these from https://dash.cloudflare.com/profile/api-tokens
-dns_cloudflare_email = your-email@example.com
-dns_cloudflare_api_key = your-global-api-key
-
-# OR use API Token (recommended)
-# dns_cloudflare_api_token = your-api-token
-EOF
-        chmod 600 ./cloudflare.ini
-        print_error "Please edit ./cloudflare.ini with your Cloudflare credentials and run the script again"
-        exit 1
-    fi
-    
-    certbot certonly \
-        --dns-cloudflare \
-        --dns-cloudflare-credentials ./cloudflare.ini \
-        --email "$EMAIL" \
-        --agree-tos \
-        --no-eff-email \
-        --config-dir ./data/certbot/conf \
-        --work-dir ./data/certbot/work \
-        --logs-dir ./data/certbot/logs \
-        --force-renewal \
-        $STAGING_FLAG \
-        -d "$bitcoin_domain"
-}
-
 # Ask user which method to use
 echo ""
 echo "Choose certificate generation method:"
-echo "1) Manual DNS challenge (requires manual DNS record creation)"
-echo "2) Cloudflare DNS plugin (automated, requires Cloudflare API credentials)"
-echo "3) HTTP challenge (no wildcard support)"
-echo "4) Generate bitcoin subdomain certificate only (manual DNS challenge)"
-echo "5) Generate bitcoin subdomain certificate only (Cloudflare DNS plugin)"
+echo "1) Manual DNS challenge for wildcard certificate (recommended - covers all subdomains)"
+echo "2) HTTP challenge for main domain only (no wildcard support)"
 echo ""
-read -p "Enter your choice (1-5): " choice
+read -p "Enter your choice (1-2): " choice
 
 case $choice in
     1)
-        generate_manual_cert
+        generate_wildcard_cert
         ;;
     2)
-        generate_cloudflare_cert
-        ;;
-    3)
         generate_http_cert
-        ;;
-    4)
-        generate_bitcoin_subdomain_cert
-        ;;
-    5)
-        generate_bitcoin_cloudflare_cert
         ;;
     *)
         print_error "Invalid choice. Exiting."
@@ -255,28 +152,21 @@ case $choice in
 esac
 
 # Check if certificate was generated successfully
-bitcoin_domain="${BITCOIN_SUBDOMAIN}.${DOMAIN}"
-cert_generated=false
-
-# Check for main domain certificate
 if [ -d "./data/certbot/conf/live/$DOMAIN" ]; then
-    print_status "Main domain certificate generated successfully!"
+    print_status "Certificate generated successfully!"
     print_status "Certificate files are located in: ./data/certbot/conf/live/$DOMAIN/"
     print_status "- Certificate: fullchain.pem"
     print_status "- Private key: privkey.pem"
-    cert_generated=true
+    
+    if [ -f "./data/certbot/conf/live/$DOMAIN/fullchain.pem" ]; then
+        print_status "Certificate details:"
+        openssl x509 -in "./data/certbot/conf/live/$DOMAIN/fullchain.pem" -text -noout | grep -E "(Subject:|DNS:|Not After)"
+    fi
+else
+    print_error "Certificate generation failed!"
+    exit 1
 fi
-
-# Check for bitcoin subdomain certificate
-if [ -d "./data/certbot/conf/live/$bitcoin_domain" ]; then
-    print_status "Bitcoin subdomain certificate generated successfully!"
-    print_status "Certificate files are located in: ./data/certbot/conf/live/$bitcoin_domain/"
-    print_status "- Certificate: fullchain.pem"
-    print_status "- Private key: privkey.pem"
-    cert_generated=true
-fi
-
-if [ "$cert_generated" = true ]; then
+    
     # Set up automatic renewal
     print_status "Setting up automatic certificate renewal..."
     
@@ -298,10 +188,14 @@ EOF
     print_status "Certificate information:"
     certbot certificates --config-dir ./data/certbot/conf
     
-else
-    print_error "Certificate generation failed!"
-    exit 1
-fi
-
-print_status "SSL certificate setup complete!"
-print_status "Don't forget to update your nginx configuration to use the new certificates."
+    print_status "SSL certificate setup complete!"
+    print_status "Don't forget to update your nginx configuration to use the new certificates."
+    print_status ""
+    print_status "Your services will be available at:"
+    print_status "- Mempool: https://mempool.$DOMAIN"
+    print_status "- Jellyfin: https://jellyfin.$DOMAIN (NOT proxied through Cloudflare)"
+    print_status "- Jackett: https://jackett.$DOMAIN"
+    print_status "- qBittorrent: https://qbittorrent.$DOMAIN"
+    print_status "- Radarr: https://radarr.$DOMAIN"
+    print_status "- Sonarr: https://sonarr.$DOMAIN"
+    print_status "- Bitcoin/Electrum SSL: bitcoin.$DOMAIN:50002"

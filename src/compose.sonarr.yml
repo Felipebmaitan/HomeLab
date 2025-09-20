@@ -7,7 +7,6 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=${TZ}
-      - SONARR__URLBASE=${SONARR_URL_BASE}
     volumes:
       - /srv/sonarr/config:/config
       - /srv/media/tvshows:/tv
